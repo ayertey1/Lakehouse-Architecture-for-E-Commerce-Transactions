@@ -15,12 +15,10 @@ spark = SparkSession.builder \
     .getOrCreate()
 
 # Input and output locations 
-# RAW_INPUT_PATH = "s3://lakehouse-datastore/raw/products/"
-# PROCESSED_OUTPUT_PATH = "s3://lakehouse-datastore/processed/products/"
-# REJECTED_PATH = "s3://lakehouse-datastore/rejected/products/"
-RAW_INPUT_PATH = "data/products.csv"
-PROCESSED_OUTPUT_PATH = "data/processed/products/"
-REJECTED_PATH = "data/rejected/products/"
+RAW_INPUT_PATH = "s3://lakehouse-datastore/raw/products/"
+PROCESSED_OUTPUT_PATH = "s3://lakehouse-datastore/processed/products/"
+REJECTED_PATH = "s3://lakehouse-datastore/rejected/products/"
+
 # Define schema reflecting your data sample
 product_schema = StructType([
     StructField("product_id", IntegerType(), False),

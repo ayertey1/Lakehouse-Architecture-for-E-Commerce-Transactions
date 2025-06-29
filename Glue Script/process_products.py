@@ -5,9 +5,9 @@ Glue ETL job to process product data into Delta Lake
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, trim, current_timestamp, lit
-from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 
-# Create SparkSession with Delta Lake
+# Initialize SparkSession with Delta support
 spark = SparkSession.builder \
     .appName("ProcessProductsETL") \
     .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
@@ -19,10 +19,10 @@ RAW_INPUT_PATH = "s3://your-bucket/raw/products/"
 PROCESSED_OUTPUT_PATH = "s3://your-bucket/processed/products/"
 REJECTED_PATH = "s3://your-bucket/rejected/products/"
 
-# Define schema
+# Define schema reflecting your data sample
 product_schema = StructType([
-    StructField("product_id", StringType(), False),
-    StructField("department_id", StringType(), True),
+    StructField("product_id", IntegerType(), False),
+    StructField("department_id", IntegerType(), True),
     StructField("department", StringType(), True),
     StructField("product_name", StringType(), True)
 ])
@@ -34,24 +34,38 @@ df_raw = spark.read \
     .schema(product_schema) \
     .load(RAW_INPUT_PATH)
 
-# Trim whitespace
-df_trimmed = df_raw.select([trim(col(c)).alias(c) for c in df_raw.columns])
+# Trim whitespace from string fields
+df_trimmed = df_raw \
+    .withColumn("department", trim(col("department"))) \
+    .withColumn("product_name", trim(col("product_name")))
 
-# Validate rows: product_id must not be null or empty
-df_valid = df_trimmed.filter(col("product_id").isNotNull() & (col("product_id") != ""))
+# Apply validation rules:
+# 1. product_id not null and >0
+# 2. department_id not null and >0
+# 3. department not null or empty
+df_valid = df_trimmed.filter(
+    (col("product_id").isNotNull()) &
+    (col("product_id") > 0) &
+    (col("department_id").isNotNull()) &
+    (col("department_id") > 0) &
+    (col("department").isNotNull()) &
+    (col("department") != "")
+)
 
-df_invalid = df_trimmed.subtract(df_valid).withColumn("rejection_reason", lit("Invalid or missing product_id"))
+# Capture invalid records for logging
+df_invalid = df_trimmed.subtract(df_valid) \
+    .withColumn("rejection_reason", lit("Failed validation rules"))
 
 # Deduplicate
 df_deduped = df_valid.dropDuplicates(["product_id"])
 
-# Write rejected records to rejected path
+# Write rejected records to rejected path in Parquet
 df_invalid.write \
     .mode("overwrite") \
     .format("parquet") \
     .save(REJECTED_PATH)
 
-# Write clean data to Delta Lake
+# Write clean deduplicated data to Delta Lake partitioned by department_id
 df_deduped.write \
     .mode("overwrite") \
     .format("delta") \

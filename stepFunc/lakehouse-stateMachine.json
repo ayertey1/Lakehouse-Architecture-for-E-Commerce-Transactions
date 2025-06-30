@@ -1,0 +1,163 @@
+{
+  "Comment": "Lakehouse ETL Orchestration (Selective, Streamlined, No Validation)",
+  "StartAt": "ConvertFilesLambda",
+  "States": {
+    "ConvertFilesLambda": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-north-1:102306345968:function:xlsx_to_csv_lambda",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "WaitForConversion"
+    },
+    "WaitForConversion": {
+      "Type": "Wait",
+      "Seconds": 60,
+      "Next": "EvaluateDatasetLambda"
+    },
+    "EvaluateDatasetLambda": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-north-1:102306345968:function:EvaluateDatasetChoice",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": "$.datasetFlags",
+      "Next": "DatasetChoice"
+    },
+    "DatasetChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.datasetFlags.process_orders",
+          "BooleanEquals": true,
+          "Next": "ProcessOrdersETL"
+        },
+        {
+          "Variable": "$.datasetFlags.process_order_items",
+          "BooleanEquals": true,
+          "Next": "ProcessOrderItemsETL"
+        },
+        {
+          "Variable": "$.datasetFlags.process_products",
+          "BooleanEquals": true,
+          "Next": "ProcessProductsETL"
+        }
+      ],
+      "Default": "NoDatasetFound"
+    },
+    "ProcessOrdersETL": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "process_orders_ETL"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "WaitAfterOrders"
+    },
+    "WaitAfterOrders": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "RunGlueCrawler"
+    },
+    "ProcessOrderItemsETL": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "process_order_items_ETL"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "WaitAfterOrderItems"
+    },
+    "WaitAfterOrderItems": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "RunGlueCrawler"
+    },
+    "ProcessProductsETL": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "process_products_ETL"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "WaitAfterProducts"
+    },
+    "WaitAfterProducts": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "RunGlueCrawler"
+    },
+    "RunGlueCrawler": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-north-1:102306345968:function:start_crawlers",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "ArchiveRawFiles"
+    },
+    "ArchiveRawFiles": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-north-1:102306345968:function:archive_raw_files_lambda",
+      "End": true
+    },
+    "NoDatasetFound": {
+      "Type": "Fail",
+      "Error": "NoDatasetError",
+      "Cause": "No datasets were flagged for processing."
+    }
+  }
+}

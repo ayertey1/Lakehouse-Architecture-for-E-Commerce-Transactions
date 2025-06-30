@@ -18,7 +18,9 @@ def run_query(sql, database, output_bucket):
 
     # Wait for completion
     while True:
-        result = athena.get_query_execution(QueryExecutionId=query_execution_id)
+        result = athena.get_query_execution(
+            QueryExecutionId=query_execution_id
+        )
         state = result['QueryExecution']['Status']['State']
         if state in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
             break

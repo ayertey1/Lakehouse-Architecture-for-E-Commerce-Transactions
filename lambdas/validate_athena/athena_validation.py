@@ -3,6 +3,7 @@ import time
 
 athena = boto3.client('athena')
 
+
 def run_query(sql, database, output_bucket):
     response = athena.start_query_execution(
         QueryString=sql,
@@ -24,7 +25,9 @@ def run_query(sql, database, output_bucket):
         time.sleep(5)
 
     if state != 'SUCCEEDED':
-        raise Exception(f"Query {query_execution_id} failed with state {state}")
+        raise Exception(
+            f"Query {query_execution_id} failed with state {state}"
+        )
 
     # Get results
     results = athena.get_query_results(QueryExecutionId=query_execution_id)
@@ -33,9 +36,12 @@ def run_query(sql, database, output_bucket):
 
     return count
 
+
 def lambda_handler(event, context):
     database = 'lakehouse_datastore'
-    output_bucket = 's3://lakehouse-datastore/athena-query-results/'
+    output_bucket = (
+        's3://lakehouse-datastore/athena-query-results/'
+    )
 
     orders_sql = 'SELECT COUNT(*) FROM lakehouse_orders'
     products_sql = 'SELECT COUNT(*) FROM lakehouse_products'

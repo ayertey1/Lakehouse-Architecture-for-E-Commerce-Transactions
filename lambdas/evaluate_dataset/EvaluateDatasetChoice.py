@@ -1,5 +1,5 @@
-import json
 import re
+
 
 def lambda_handler(event, context):
     process_orders = False
@@ -10,8 +10,8 @@ def lambda_handler(event, context):
 
     # Case 1: Event from Step Function after xlsx_to_csv_lambda
     if "body" in event and isinstance(event["body"], str):
-        # Try to extract path from string like "Processed file: staging/order_items/order_items_apr_2025.xlsx"
-        match = re.search(r'Processed file: (.+)', event["body"])
+        pattern = r'Processed file: (.+)'
+        match = re.search(pattern, event["body"])
         if match:
             keys.append(match.group(1).lower())
 

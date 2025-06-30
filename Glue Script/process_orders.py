@@ -1,9 +1,9 @@
-"""
-process_orders.py
-Glue ETL job to process orders data into Delta Lake
-"""
+import sys
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
 
-from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col,
     trim,
@@ -13,12 +13,13 @@ from pyspark.sql.functions import (
 )
 from pyspark.sql.types import StructType, StructField, StringType, TimestampType, DoubleType, DateType
 
-# Initialize SparkSession with Delta
-spark = SparkSession.builder \
-    .appName("ProcessOrdersETL") \
-    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
-    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-    .getOrCreate()
+# Glue boilerplate
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
 
 # Input and output locations
 RAW_INPUT_PATH = "s3://lakehouse-datastore/raw/orders/"
@@ -54,13 +55,11 @@ df_parsed = df_trimmed \
 
 # Validation rules
 df_valid = df_parsed.filter(
-    (col("order_id").isNotNull()) &
-    (col("order_id") != "") &
-    (col("user_id").isNotNull()) &
-    (col("user_id") != "") &
+    (col("order_id").isNotNull()) & (col("order_id") != "") &
+    (col("user_id").isNotNull()) & (col("user_id") != "") &
     (col("order_timestamp").isNotNull()) &
     (col("date").isNotNull()) &
-    (col("total_amount").isNull() | (col("total_amount") >= 0))
+    ((col("total_amount").isNull()) | (col("total_amount") >= 0))
 )
 
 # Capture invalid rows
@@ -85,4 +84,4 @@ df_deduped.write \
     .option("overwriteSchema", "true") \
     .save(PROCESSED_OUTPUT_PATH)
 
-spark.stop()
+job.commit()

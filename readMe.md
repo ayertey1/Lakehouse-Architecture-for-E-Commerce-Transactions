@@ -42,7 +42,7 @@ lakehouse-datastore
 │   ├── order_items/
 │   └── products/
 │
-└── athena-results/              # Athena query results (if used)
+└── athena-results/              # Athena query results 
 ```
 
 ---

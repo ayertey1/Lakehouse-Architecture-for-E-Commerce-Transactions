@@ -1,0 +1,99 @@
+name: Deploy Lakehouse Pipeline
+
+on:
+  push:
+    branches:
+      - prodLab5
+
+env:
+  AWS_REGION: eu-north-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install AWS CLI
+        run: |
+          pip install awscli
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      ####################################################
+      # Deploy xlsx_to_csv_lambda
+      
+      - name: Zip xlsx_to_csv_lambda
+        run: |
+          cd lambdas/xlsx_to_csv
+          zip -r ../../xlsx_to_csv.zip .
+      - name: Update xlsx_to_csv_lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name xlsx_to_csv_lambda \
+            --zip-file fileb://xlsx_to_csv.zip
+
+      ####################################################
+      # Deploy EvaluateDatasetChoice
+      
+      - name: Zip EvaluateDatasetChoice
+        run: |
+          cd lambdas/evaluate_dataset
+          zip -r ../../evaluate_dataset.zip .
+      - name: Update EvaluateDatasetChoice
+        run: |
+          aws lambda update-function-code \
+            --function-name EvaluateDatasetChoice \
+            --zip-file fileb://evaluate_dataset.zip
+
+      ####################################################
+      # Deploy start_crawlers
+      
+      - name: Zip start_crawlers
+        run: |
+          cd lambdas/start_crawler
+          zip -r ../../start_crawlers.zip .
+      - name: Update start_crawlers
+        run: |
+          aws lambda update-function-code \
+            --function-name start_crawlers \
+            --zip-file fileb://start_crawlers.zip
+
+      ####################################################
+      # Deploy archive_raw_files_lambda
+      
+      - name: Zip archive_raw_files_lambda
+        run: |
+          cd lambdas/archive_raw
+          zip -r ../../archive_raw.zip .
+      - name: Update archive_raw_files_lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name archive_raw_files_lambda \
+            --zip-file fileb://archive_raw.zip
+
+      ####################################################
+      # (pending on completion) Deploy validate_athena_tables_lambda
+      
+      # Uncomment if you have this Lambda function deployed
+      #- name: Zip validate_athena_tables_lambda
+      #  run: |
+      #    cd lambdas/validate_athena
+      #    zip -r ../../validate_athena.zip .
+      #- name: Update validate_athena_tables_lambda
+      #  run: |
+      #    aws lambda update-function-code \
+      #      --function-name validate_athena_tables_lambda \
+      #      --zip-file fileb://validate_athena.zip

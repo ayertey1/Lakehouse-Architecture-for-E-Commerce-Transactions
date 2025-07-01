@@ -1,0 +1,13 @@
+Add Delta configs in the Glue Job settings
+If using AWS Glue Studio:
+* Go to the Job Details tab.
+
+* Scroll to Job Parameters or Spark configuration options.
+
+* Add these key-value pairs:
+
+* Key	Value
+--conf	spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
+--conf	spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+
+You need to add both rows—each --conf as a separate parameter entry.
